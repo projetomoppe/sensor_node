@@ -59,43 +59,32 @@ NewPing us(TRIG, ECHO);
 // DEFININDO STRUCT DE DADOS
 // struct com dados dos sensores
 typedef struct{
-  int ID;
-  int ICOS_INF;
-  int ICOS_SUP;
-  float NIVEL;
+  int ID;                    // ID do dispositivo - inteiro tamanho variavel (3 maximo)
+  int ICOS_INF;              // sensor ICOS inferior - inteiro tamanho 1
+  int ICOS_SUP;              // sensor ICOS superior - inteiro tamanho 1
+  float NIVEL;               // nivel do ultrassonico - float com 2 casas decimais (cm)
+  bool LAT_NEG;              // booleano para latitude negativa (se 1 é negativo)
+  int LAT_DEG;               // graus da latitude - inteiro tamanho 2
+  uint16_t LAT_BILLIONTHS;   // decimal da latitude - inteiro tamanho 32
+  bool LNG_NEG;              // booleano para longitude negativa (se 1 é negativo)
+  int LNG_DEG;               // graus da longitude - inteiro tamanho 2
+  uint16_t LNG_BILLIONTHS;   // decimal da latitude - inteiro tamanho 32
+  uint16_t ANO;              // ano - inteiro tamanho 4
+  uint8_t MES;               // mês - iinteiro tamanho 2
+  uint8_t DIA;               // dia - inteiro tamanho 2
+  uint8_t HORA;              // hora - inteiro tamanho 2
+  uint8_t MINUTO;            // minuto - inteiro tamanho 2
+  uint8_t SEGUNDO;           // segundo - inteiro tamanho 2
 }
 S_t;
 
-// struct com dados do GPS
-typedef struct{
-  int ID;
-  bool LAT_NEG;
-  int LAT_DEG;
-  uint16_t LAT_BILLIONTHS;
-  bool LNG_NEG;
-  int LNG_DEG;
-  uint16_t LNG_BILLIONTHS;
-  uint16_t ANO;
-  uint8_t MES;
-  uint8_t DIA;
-  uint8_t HORA;
-  uint8_t MINUTO;
-  uint8_t SEGUNDO;
-}
-GPS_t;
-
 // declarando as structs que armazenarão os dados
 S_t dadosSensores;
-GPS_t dadosGPS;
 
 void setup()
 { 
-  Serial.begin(9600); // comunicacao Serial com o computador
+  Serial.begin(115200); // comunicacao Serial com o computador
   Serial3.begin(GPSB);  // modulo GPS
-
-  Serial.println();
-  Serial.println(sizeof(dadosGPS));
-  Serial.println();
 
   // define os sensores ICOS como input
   pinMode(S1, INPUT);
@@ -123,27 +112,50 @@ void setup()
 
 void loop()
 { 
-  // obtencao dos dados
+  // obtencao dos dados dos sensores
+  dadosSensores.ID       = ID_dispositivo;
   dadosSensores.ICOS_INF = digitalRead(S1); // leitura do sensor ICOS inferior
   dadosSensores.ICOS_SUP = digitalRead(S2); // leitura do sensor ICOS superior
   dadosSensores.NIVEL    = dados_su();      // obtencao do nivel dado pelo sensor ultrassonico
-  dados_gps();                    // alimenta o objeto gps
+  
+  dados_gps(); // alimenta o objeto gps
 
-  Serial.println(gps.location.rawLng().negative);
+  // alimenta struct
+  dadosSensores.LAT_NEG = gps.location.rawLat().negative;
+  dadosSensores.LAT_DEG = gps.location.rawLat().deg;
+  dadosSensores.LAT_BILLIONTHS = gps.location.rawLat().billionths;
+  dadosSensores.LNG_NEG = gps.location.rawLng().negative;
+  dadosSensores.LNG_DEG = gps.location.rawLng().deg;
+  dadosSensores.LNG_BILLIONTHS = gps.location.rawLng().billionths;
+  dadosSensores.ANO = gps.date.year();
+  dadosSensores.MES = gps.date.month();
+  dadosSensores.DIA = gps.date.day();
+  dadosSensores.HORA = gps.time.hour();
+  dadosSensores.MINUTO = gps.time.minute();
+  dadosSensores.SEGUNDO = gps.time.second();
 
-  Serial.println();
-  Serial.println(dadosSensores.ICOS_INF);
-  Serial.println(dadosSensores.ICOS_SUP);
-  Serial.println(dadosSensores.NIVEL);
-  Serial.println(gps.location.lat(), 6);
-  Serial.println(gps.location.lng(), 6);
-  Serial.println(gps.time.value());
-  Serial.println(gps.date.value());
-  Serial.println();
+  // ***************** DEBUG
+//  Serial.println(dadosSensores.ID);
+//  Serial.println(dadosSensores.ICOS_INF);
+//  Serial.println(dadosSensores.ICOS_SUP);
+//  Serial.println(dadosSensores.NIVEL);
+//  Serial.println(dadosSensores.LAT_NEG);
+//  Serial.println(dadosSensores.LAT_DEG);
+//  Serial.println(dadosSensores.LAT_BILLIONTHS);
+//  Serial.println(dadosSensores.LNG_NEG);
+//  Serial.println(dadosSensores.LNG_DEG);
+//  Serial.println(dadosSensores.LNG_BILLIONTHS);
+//  Serial.println(dadosSensores.ANO);
+//  Serial.println(dadosSensores.MES);
+//  Serial.println(dadosSensores.DIA);
+//  Serial.println(dadosSensores.HORA);
+//  Serial.println(dadosSensores.MINUTO);
+//  Serial.println(dadosSensores.SEGUNDO);
+//  Serial.println();
 
   if((ultimoLog + LOG_RATE) <= millis()) // Se  LOG_RATE em  milissegundos desde o último registro
   {
-    if(gps.location.isUpdated())
+    if(gps.location.isValid())
     {
       if(logData(ID_dispositivo, dadosSensores.ICOS_INF, dadosSensores.ICOS_SUP, dadosSensores.NIVEL)) // Registrar os dados do GPS
       {
@@ -157,7 +169,7 @@ void loop()
     }
     else // dados do GPS nao validos
     {
-      Serial.println("Dados de GPS inválidos. Buscando...");
+      Serial.println("Dados de GPS invalidos. Buscando...");
     }
   }
 } // fecha void loop()

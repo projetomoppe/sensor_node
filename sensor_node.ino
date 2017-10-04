@@ -1,9 +1,9 @@
-//#include <SPI.h>              // SPI
+#include <SPI.h>             // SPI
 #include <NewPing.h>         // Sensor ultrassonico
 #include <TinyGPS++.h>       // Modulo GPS
 #include <SdFat.h>           // Modulo Cartão SD
-//#include <nRF24L01.h>
-//#include <RF24.h>
+#include <nRF24L01.h>        // Modulo Com RF  - RF24
+#include <RF24.h>            // Modulo Com RF  - RF24
 
 // definindo as constantes do programa
 // ID DO DISPOSITIVO
@@ -35,26 +35,21 @@ const int pinSD = 6;
 char logNomeArquivo[10];
 
 // colunas do arquivo
-#define LOG_COLUMN_COUNT 8
+#define LOG_COLUMN_COUNT 11
 char* logColunas[LOG_COLUMN_COUNT] = {
-  "ID", "ICOS Inferior", "ICOS Superior", "Nivel Ultrassonico", "Latitude", "Longitude", "Data", "Hora"
+  "ID", "ICOS Inferior", "ICOS Superior", "Nivel Ultrassonico", "Latitude", "Longitude", "Elevacao", "Data", "Hora", "Minuto", "Segundo"
 };
 
 // controle de rate de log
 const unsigned long LOG_RATE = 3000;
 unsigned long ultimoLog = 0;
 
-// definindo variaveis globais do programa
-//float nivel = 0.0;
-//int icos_inf;
-//int icos_sup;
-
 // inicialização dos objetos
 SdFat sdCard;
 TinyGPSPlus gps;
 NewPing us(TRIG, ECHO);
-//RF24 radio(CEpin,CSpin);
-//const uint64_t pipe = 0xE8E8F0F0E1LL;
+RF24 radio(CEpin,CSpin);
+const uint64_t pipe = 0xF0F0F0F0E1LL;
 
 // DEFININDO STRUCT DE DADOS
 // struct com dados dos sensores
@@ -69,6 +64,7 @@ typedef struct{
   bool LNG_NEG;              // booleano para longitude negativa (se 1 é negativo)
   int LNG_DEG;               // graus da longitude - inteiro tamanho 2
   uint16_t LNG_BILLIONTHS;   // decimal da latitude - inteiro tamanho 32
+  double ELEVACAO;           // elevacao - double
   uint16_t ANO;              // ano - inteiro tamanho 4
   uint8_t MES;               // mês - iinteiro tamanho 2
   uint8_t DIA;               // dia - inteiro tamanho 2
@@ -82,32 +78,37 @@ S_t;
 S_t dadosSensores;
 
 void setup()
-{ 
-  Serial.begin(115200); // comunicacao Serial com o computador
+{
+  Serial.println(F("\r\n----------- PICJr - MOPPE -----------"));
+  Serial.println(F("------- Programa inicializado -------\r\n"));
+
+  Serial.println(F("Iniciando Setup..."));
+
+  Serial.begin(57600); // comunicacao Serial com o computador
   Serial3.begin(GPSB);  // modulo GPS
 
   // define os sensores ICOS como input
   pinMode(S1, INPUT);
   pinMode(S2, INPUT);
 
-  Serial.println(F("\r\n----------- PICJr - MOPPE -----------"));
-  Serial.println(F("------- Programa inicializado -------\r\n"));
-
-  Serial.println(F("Iniciando Setup"));
-
-  // inicializa modulo RF24
-//  radio.begin();
-//  radio.openWritingPipe(pipe);
-
   // Inicializa o modulo SD
-  if(!sdCard.begin(pinSD, SPI_HALF_SPEED))
+  if(!sdCard.begin(pinSD, SD_SCK_MHZ(50)))
     sdCard.initErrorHalt();
 
   // cria novo arquivo a cada inicializacao
   updateFileName(); // cria um novo arquivo a cada inicializacao
   printHeader(); // imprime o cabecalho do arquivo
+
+  // aguarda a inicializacao dos componentes
+  delay(5000);
   
-  Serial.println(F("Setup Finalizado"));
+  Serial.println(F("Setup Finalizado!"));
+
+  delay(2000);
+
+  // RF24
+  radio.begin();
+  radio.openWritingPipe(pipe);
 } // fecha void setup()
 
 void loop()
@@ -127,6 +128,7 @@ void loop()
   dadosSensores.LNG_NEG = gps.location.rawLng().negative;
   dadosSensores.LNG_DEG = gps.location.rawLng().deg;
   dadosSensores.LNG_BILLIONTHS = gps.location.rawLng().billionths;
+  dadosSensores.ELEVACAO = gps.altitude.meters();
   dadosSensores.ANO = gps.date.year();
   dadosSensores.MES = gps.date.month();
   dadosSensores.DIA = gps.date.day();
@@ -145,6 +147,7 @@ void loop()
 //  Serial.println(dadosSensores.LNG_NEG);
 //  Serial.println(dadosSensores.LNG_DEG);
 //  Serial.println(dadosSensores.LNG_BILLIONTHS);
+//  Serial.println(dadosSensores.ELEVACAO);
 //  Serial.println(dadosSensores.ANO);
 //  Serial.println(dadosSensores.MES);
 //  Serial.println(dadosSensores.DIA);
@@ -157,15 +160,25 @@ void loop()
   {
     if(gps.location.isValid())
     {
-      if(logData(ID_dispositivo, dadosSensores.ICOS_INF, dadosSensores.ICOS_SUP, dadosSensores.NIVEL)) // Registrar os dados do GPS
+      if(logData(dadosSensores)) // Registrar dados no cartao SD
       {
-        Serial.println("Dados Logados!"); //mostratr essa mensagem
+        Serial.println("DADOS LOGADOS"); //mostratr essa mensagem
         ultimoLog = millis(); // atualizar a variavel
       }
       else // se nao atualizou
       {
         Serial.println("Falha no log de dados."); // sera mostrado uma mensagem de erro no GPS
       }
+
+      // ENVIAR DADOS AO SINK NODE
+      Serial.println(sizeof(dadosSensores));
+      bool ok = radio.write(&dadosSensores, sizeof(dadosSensores));
+      Serial.println(ok);
+    
+      if(ok)
+        Serial.println(F("DADOS ENVIADOS"));
+      else
+        Serial.println(F("FALHA NO ENVIO DOS DADOS"));
     }
     else // dados do GPS nao validos
     {
@@ -177,8 +190,12 @@ void loop()
 // obtendo dados do sensor ultrassonico
 float dados_su(){
   float dist = us.ping_cm();
-  float nivel = REF - dist; 
-  return nivel;
+  float nivel = REF - dist;
+
+  if(nivel >= 0.0 && nivel <= REF)
+    return nivel;
+  else
+    return -1111.11;
 }
 
 // alimentando o objeto gps com dados do módulo GPS
@@ -221,37 +238,74 @@ void printHeader(){
     logFile.close();
   }
   else{
-    sdCard.errorHalt("\r\nErro na abertura do arquivo!\r\n");
+    Serial.println("\r\nErro na abertura do arquivo (HEADER)!");
   }
 }
 
-byte logData(int ID, int inf, int sup, float us)
+byte logData(S_t dadosSensores)
 {
   SdFile logFile;
   bool sd_open = logFile.open(logNomeArquivo, O_RDWR | O_CREAT | O_AT_END);
-  
+
+  // grava os dados no arquivo do cartao SD
   if(sd_open){
-    logFile.print(ID);
+    logFile.print(dadosSensores.ID);
     logFile.print(',');
-    logFile.print(inf);
+    logFile.print(dadosSensores.ICOS_INF);
     logFile.print(',');
-    logFile.print(sup);
+    logFile.print(dadosSensores.ICOS_SUP);
     logFile.print(',');
-    logFile.print(us);
+    logFile.print(dadosSensores.NIVEL);
     logFile.print(',');
-    logFile.print(gps.location.lat(), 6);
+    logFile.print(dadosSensores.LAT_NEG ? "-" : "+");
+    logFile.print(dadosSensores.LAT_DEG);
+    logFile.print(".");
+    logFile.print(dadosSensores.LAT_BILLIONTHS);
     logFile.print(',');
-    logFile.print(gps.location.lng(), 6);
+    logFile.print(dadosSensores.LNG_NEG ? "-" : "+");
+    logFile.print(dadosSensores.LNG_DEG);
+    logFile.print(".");
+    logFile.print(dadosSensores.LNG_BILLIONTHS);
     logFile.print(',');
-    logFile.print(gps.date.value());
+    logFile.print(dadosSensores.ELEVACAO);
     logFile.print(',');
-    logFile.print(gps.time.value());
+
+    if(dadosSensores.DIA < 10)
+      logFile.print("0");
+      
+    logFile.print(dadosSensores.DIA);
+    logFile.print("/");
+
+    if(dadosSensores.MES < 10)
+      logFile.print("0");
+      
+    logFile.print(dadosSensores.MES);
+    logFile.print("/");
+    logFile.print(dadosSensores.ANO);
+    logFile.print(',');
+
+    if(dadosSensores.HORA < 10)
+      logFile.print("0");
+    
+    logFile.print(dadosSensores.HORA);
+    logFile.print(',');
+
+    if(dadosSensores.MINUTO < 10)
+      logFile.print("0");
+    
+    logFile.print(dadosSensores.MINUTO);
+    logFile.print(',');
+
+    if(dadosSensores.SEGUNDO < 10)
+      logFile.print("0");
+    
+    logFile.print(dadosSensores.SEGUNDO);
     logFile.println();
     logFile.close();
     return 1;
   }
   else{
-    sdCard.errorHalt("\r\nErro na abertura do arquivo!\r\n");
+    Serial.println("\r\nErro na abertura do arquivo! (DADOS)");
     return 0;
   }
 }

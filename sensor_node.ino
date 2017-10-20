@@ -9,13 +9,24 @@
 // ID DO DISPOSITIVO
 const int ID_dispositivo = 1;  // ID do pacote enviado
 
+// LEDs de status
+// LED_1 - Informa se dispositivo está alimentado
+// LED_2 - Indica falha no módulo SD (Ligado - Erro Inicializacao / 300ms ON e 2000ms OFF - erro no log de dados)
+// LED_3 - Indica falha no módulo GPS
+// LED_4 - Indica falha no módulo RF24
+const int LED_2 = 11;
+const int LED_3 = 12;
+const int LED_4 = 13;
+
 // SENSORES ICOS
+// Identificacao Sensor Superior - Azul e Branco
+// Identificacao Sensor Inferior - Verde e Marron
 const int S1 = 4; // pinos sensores ICOS
 const int S2 = 3;
 
 // SENSOR ULTRASSONICO
-const int ECHO = 12; // pinos sensor ultrassonico
-const int TRIG = 13;
+const int ECHO = 9; // pinos sensor ultrassonico
+const int TRIG = 10;
 const float REF = 35.0; // referencia de altura de instalacao do sensor ultrassonico
 
 // MODULO GPS
@@ -83,6 +94,15 @@ void setup()
   Serial.println(F("------- Programa inicializado -------\r\n"));
 
   Serial.println(F("Iniciando Setup..."));
+  
+  // Define PIN Mode LEDs
+  pinMode(LED_2, OUTPUT);
+  pinMode(LED_3, OUTPUT);
+  pinMode(LED_4, OUTPUT);
+  
+  digitalWrite(LED_2, LOW);
+  digitalWrite(LED_3, LOW);
+  digitalWrite(LED_4, LOW);
 
   Serial.begin(57600); // comunicacao Serial com o computador
   Serial3.begin(GPSB);  // modulo GPS
@@ -92,8 +112,10 @@ void setup()
   pinMode(S2, INPUT);
 
   // Inicializa o modulo SD
-  if(!sdCard.begin(pinSD, SD_SCK_MHZ(50)))
+  if(!sdCard.begin(pinSD, SD_SCK_MHZ(50))){
+    digitalWrite(LED_2, HIGH);
     sdCard.initErrorHalt();
+  }
 
   // cria novo arquivo a cada inicializacao
   updateFileName(); // cria um novo arquivo a cada inicializacao
@@ -137,24 +159,24 @@ void loop()
   dadosSensores.SEGUNDO = gps.time.second();
 
   // ***************** DEBUG
-//  Serial.println(dadosSensores.ID);
-//  Serial.println(dadosSensores.ICOS_INF);
-//  Serial.println(dadosSensores.ICOS_SUP);
-//  Serial.println(dadosSensores.NIVEL);
-//  Serial.println(dadosSensores.LAT_NEG);
-//  Serial.println(dadosSensores.LAT_DEG);
-//  Serial.println(dadosSensores.LAT_BILLIONTHS);
-//  Serial.println(dadosSensores.LNG_NEG);
-//  Serial.println(dadosSensores.LNG_DEG);
-//  Serial.println(dadosSensores.LNG_BILLIONTHS);
-//  Serial.println(dadosSensores.ELEVACAO);
-//  Serial.println(dadosSensores.ANO);
-//  Serial.println(dadosSensores.MES);
-//  Serial.println(dadosSensores.DIA);
-//  Serial.println(dadosSensores.HORA);
-//  Serial.println(dadosSensores.MINUTO);
-//  Serial.println(dadosSensores.SEGUNDO);
-//  Serial.println();
+  Serial.println(dadosSensores.ID);
+  Serial.println(dadosSensores.ICOS_INF);
+  Serial.println(dadosSensores.ICOS_SUP);
+  Serial.println(dadosSensores.NIVEL);
+  Serial.println(dadosSensores.LAT_NEG);
+  Serial.println(dadosSensores.LAT_DEG);
+  Serial.println(dadosSensores.LAT_BILLIONTHS);
+  Serial.println(dadosSensores.LNG_NEG);
+  Serial.println(dadosSensores.LNG_DEG);
+  Serial.println(dadosSensores.LNG_BILLIONTHS);
+  Serial.println(dadosSensores.ELEVACAO);
+  Serial.println(dadosSensores.ANO);
+  Serial.println(dadosSensores.MES);
+  Serial.println(dadosSensores.DIA);
+  Serial.println(dadosSensores.HORA);
+  Serial.println(dadosSensores.MINUTO);
+  Serial.println(dadosSensores.SEGUNDO);
+  Serial.println();
 
   if((ultimoLog + LOG_RATE) <= millis()) // Se  LOG_RATE em  milissegundos desde o último registro
   {
@@ -167,6 +189,11 @@ void loop()
       }
       else // se nao atualizou
       {
+        digitalWrite(LED_2, HIGH);
+        delay(300);
+        digitalWrite(LED_2, LOW);
+        delay(1000);
+        
         Serial.println("Falha no log de dados."); // sera mostrado uma mensagem de erro no GPS
       }
 
@@ -177,11 +204,20 @@ void loop()
     
       if(ok)
         Serial.println(F("DADOS ENVIADOS"));
-      else
+      else {
+        digitalWrite(LED_4, HIGH);
+        delay(300);
+        digitalWrite(LED_4, LOW);
+        delay(1000);
         Serial.println(F("FALHA NO ENVIO DOS DADOS"));
+      }
     }
     else // dados do GPS nao validos
     {
+      digitalWrite(LED_3, HIGH);
+      delay(300);
+      digitalWrite(LED_3, LOW);
+      delay(1000);
       Serial.println("Dados de GPS invalidos. Buscando...");
     }
   }
@@ -191,11 +227,7 @@ void loop()
 float dados_su(){
   float dist = us.ping_cm();
   float nivel = REF - dist;
-
-  if(nivel >= 0.0 && nivel <= REF)
-    return nivel;
-  else
-    return -1111.11;
+  return nivel;
 }
 
 // alimentando o objeto gps com dados do módulo GPS
@@ -238,6 +270,10 @@ void printHeader(){
     logFile.close();
   }
   else{
+    digitalWrite(LED_2, HIGH);
+    delay(300);
+    digitalWrite(LED_2, LOW);
+    delay(2000);
     Serial.println("\r\nErro na abertura do arquivo (HEADER)!");
   }
 }
@@ -305,6 +341,10 @@ byte logData(S_t dadosSensores)
     return 1;
   }
   else{
+    digitalWrite(LED_2, HIGH);
+    delay(300);
+    digitalWrite(LED_2, LOW);
+    delay(3000);
     Serial.println("\r\nErro na abertura do arquivo! (DADOS)");
     return 0;
   }

@@ -1,3 +1,5 @@
+#define DEBUG
+
 #include <SPI.h>             // SPI
 #include <NewPing.h>         // Sensor ultrassonico
 #include <TinyGPS++.h>       // Modulo GPS
@@ -90,10 +92,13 @@ S_t dadosSensores;
 
 void setup()
 {
-  Serial.println(F("\r\n----------- PICJr - MOPPE -----------"));
-  Serial.println(F("------- Programa inicializado -------\r\n"));
-
-  Serial.println(F("Iniciando Setup..."));
+  #ifdef DEBUG
+    Serial.begin(57600); // comunicacao Serial com o computador
+  
+    Serial.println(F("\r\n----------- PICJr - MOPPE -----------"));
+    Serial.println(F("------- Programa inicializado -------\r\n"));
+    Serial.println(F("Iniciando Setup..."));
+  #endif
   
   // Define PIN Mode LEDs
   pinMode(LED_2, OUTPUT);
@@ -104,8 +109,8 @@ void setup()
   digitalWrite(LED_3, LOW);
   digitalWrite(LED_4, LOW);
 
-  Serial.begin(57600); // comunicacao Serial com o computador
-  Serial3.begin(GPSB);  // modulo GPS
+  // modulo GPS
+  Serial3.begin(GPSB);
 
   // define os sensores ICOS como input
   pinMode(S1, INPUT);
@@ -114,19 +119,19 @@ void setup()
   // Inicializa o modulo SD
   if(!sdCard.begin(pinSD, SD_SCK_MHZ(50))){
     digitalWrite(LED_2, HIGH);
-    sdCard.initErrorHalt();
+    
+    #ifdef DEBUG
+      sdCard.initErrorHalt();
+    #endif
   }
 
   // cria novo arquivo a cada inicializacao
   updateFileName(); // cria um novo arquivo a cada inicializacao
   printHeader(); // imprime o cabecalho do arquivo
 
-  // aguarda a inicializacao dos componentes
-  delay(5000);
-  
-  Serial.println(F("Setup Finalizado!"));
-
-  delay(2000);
+  #ifdef DEBUG
+    Serial.println(F("Setup Finalizado!"));
+  #endif
 
   // RF24
   radio.begin();
@@ -158,25 +163,27 @@ void loop()
   dadosSensores.MINUTO = gps.time.minute();
   dadosSensores.SEGUNDO = gps.time.second();
 
-  // ***************** DEBUG
-  Serial.println(dadosSensores.ID);
-  Serial.println(dadosSensores.ICOS_INF);
-  Serial.println(dadosSensores.ICOS_SUP);
-  Serial.println(dadosSensores.NIVEL);
-  Serial.println(dadosSensores.LAT_NEG);
-  Serial.println(dadosSensores.LAT_DEG);
-  Serial.println(dadosSensores.LAT_BILLIONTHS);
-  Serial.println(dadosSensores.LNG_NEG);
-  Serial.println(dadosSensores.LNG_DEG);
-  Serial.println(dadosSensores.LNG_BILLIONTHS);
-  Serial.println(dadosSensores.ELEVACAO);
-  Serial.println(dadosSensores.ANO);
-  Serial.println(dadosSensores.MES);
-  Serial.println(dadosSensores.DIA);
-  Serial.println(dadosSensores.HORA);
-  Serial.println(dadosSensores.MINUTO);
-  Serial.println(dadosSensores.SEGUNDO);
-  Serial.println();
+  // DEBUG
+  #ifdef DEBUG
+    Serial.println(dadosSensores.ID);
+    Serial.println(dadosSensores.ICOS_INF);
+    Serial.println(dadosSensores.ICOS_SUP);
+    Serial.println(dadosSensores.NIVEL);
+    Serial.println(dadosSensores.LAT_NEG);
+    Serial.println(dadosSensores.LAT_DEG);
+    Serial.println(dadosSensores.LAT_BILLIONTHS);
+    Serial.println(dadosSensores.LNG_NEG);
+    Serial.println(dadosSensores.LNG_DEG);
+    Serial.println(dadosSensores.LNG_BILLIONTHS);
+    Serial.println(dadosSensores.ELEVACAO);
+    Serial.println(dadosSensores.ANO);
+    Serial.println(dadosSensores.MES);
+    Serial.println(dadosSensores.DIA);
+    Serial.println(dadosSensores.HORA);
+    Serial.println(dadosSensores.MINUTO);
+    Serial.println(dadosSensores.SEGUNDO);
+    Serial.println();
+  #endif
 
   if((ultimoLog + LOG_RATE) <= millis()) // Se  LOG_RATE em  milissegundos desde o último registro
   {
@@ -184,7 +191,9 @@ void loop()
     {
       if(logData(dadosSensores)) // Registrar dados no cartao SD
       {
-        Serial.println("DADOS LOGADOS"); //mostratr essa mensagem
+        #ifdef DEBUG
+          Serial.println("DADOS LOGADOS"); //mostratr essa mensagem
+        #endif
         ultimoLog = millis(); // atualizar a variavel
       }
       else // se nao atualizou
@@ -194,22 +203,26 @@ void loop()
         digitalWrite(LED_2, LOW);
         delay(1000);
         
-        Serial.println("Falha no log de dados."); // sera mostrado uma mensagem de erro no GPS
+        #ifdef DEBUG
+          Serial.println("Falha no log de dados."); // sera mostrado uma mensagem de erro no GPS
+        #endif
       }
 
       // ENVIAR DADOS AO SINK NODE
-      Serial.println(sizeof(dadosSensores));
       bool ok = radio.write(&dadosSensores, sizeof(dadosSensores));
-      Serial.println(ok);
-    
       if(ok)
-        Serial.println(F("DADOS ENVIADOS"));
+        #ifdef DEBUG
+          Serial.println(F("DADOS ENVIADOS"));
+        #endif
       else {
         digitalWrite(LED_4, HIGH);
         delay(300);
         digitalWrite(LED_4, LOW);
         delay(1000);
-        Serial.println(F("FALHA NO ENVIO DOS DADOS"));
+        
+        #ifdef DEBUG
+          Serial.println(F("FALHA NO ENVIO DOS DADOS"));
+        #endif
       }
     }
     else // dados do GPS nao validos
@@ -218,7 +231,10 @@ void loop()
       delay(300);
       digitalWrite(LED_3, LOW);
       delay(1000);
-      Serial.println("Dados de GPS invalidos. Buscando...");
+      
+      #ifdef DEBUG
+        Serial.println("Dados de GPS invalidos. Buscando...");
+      #endif
     }
   }
 } // fecha void loop()
@@ -245,13 +261,17 @@ void updateFileName(){
     if (!sdCard.exists(logNomeArquivo))
       break;
     else{
-      Serial.print(logNomeArquivo);
-      Serial.println(" existe!");
+      #ifdef DEBUG
+        Serial.print(logNomeArquivo);
+        Serial.println(" existe!");
+      #endif
     }
   }
 
-  Serial.print("Nome do Arquivo: ");
-  Serial.println(logNomeArquivo);
+  #ifdef DEBUG
+    Serial.print("Nome do Arquivo: ");
+    Serial.println(logNomeArquivo);
+  #endif
 }
 
 void printHeader(){
@@ -274,7 +294,10 @@ void printHeader(){
     delay(300);
     digitalWrite(LED_2, LOW);
     delay(2000);
-    Serial.println("\r\nErro na abertura do arquivo (HEADER)!");
+    
+    #ifdef DEBUG
+      Serial.println("\r\nErro na abertura do arquivo (HEADER)!");
+    #endif
   }
 }
 
@@ -345,7 +368,11 @@ byte logData(S_t dadosSensores)
     delay(300);
     digitalWrite(LED_2, LOW);
     delay(3000);
-    Serial.println("\r\nErro na abertura do arquivo! (DADOS)");
+    
+    #ifdef DEBUG
+      Serial.println("\r\nErro na abertura do arquivo! (DADOS)");
+    #endif
+    
     return 0;
   }
 }

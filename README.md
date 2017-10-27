@@ -89,7 +89,7 @@ CS do módulo -> Dividor de Tensão 3.3V -> D6 Arduino MEGA 2560
 - https://bitbucket.org/teckel12/arduino-new-ping/wiki/Home - Biblioteca NewPing - Módulo HC-SR04
 - http://arduiniana.org/libraries/tinygpsplus/ - Biblioteca TinyGPS++ - Módulo GPS
 - https://github.com/maniacbug/RF24/ - Arduino driver para nRF24L01
-- https://github.com/greiman/SdFat - Biblioteca Módulo Cartão SD
+- http://arduinominas.com.br/SDFATLib/html/index.html - Biblioteca Módulo Cartão SD
 
 ## Observações
 

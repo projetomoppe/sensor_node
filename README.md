@@ -101,10 +101,12 @@ para comunicação com um ou mais dispositivos periféricos de forma rápida em 
 - Um capacitor de 100uF foi soldado entre os pinos VCC e GND do módulo NRF24L01.
 Esta foi a maneira encontrada para estabilizar o funcionamento do módulo, de modo a obter leituras consistentes.
 Capacitores possuem a capacidade de amenizar ou eliminar ruídos.
+
 ![Alt text](/NRF24_Capacitor_VCC_GND.jpg?raw=true "Capacitor entre o VCC e o GND do NRF24L01")
 
 - Um capacitor de 100uF foi soldado entre os pinos VCC e GND do módulo cartão SD.
 Esta foi a maneira encontrada para estabilizar o funcionamento do módulo, de modo a obter funcionamento consistente.
+
 ![Alt text](/ModuloSD_Capacitor_VCC_GND.jpg?raw=true "Capacitor entre o VCC e o GND do Módulo SD")
 
 ## Biblioteca NewPing (Funções e Construtores)

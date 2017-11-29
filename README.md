@@ -84,6 +84,10 @@ SCK do módulo -> Dividor de Tensão 3.3V -> SCK SPI Arduino MEGA 2560 (D52)
 CS do módulo -> Dividor de Tensão 3.3V -> D6 Arduino MEGA 2560
 ```
 
+## Pinagem dos dispositivos
+O Circuito sensor_node pode ser observado abaixo:
+![Alt text](/sensor_node.png?raw=true "Circuito sensor_node")
+
 ## Construído com
 
 - https://bitbucket.org/teckel12/arduino-new-ping/wiki/Home - Biblioteca NewPing - Módulo HC-SR04
